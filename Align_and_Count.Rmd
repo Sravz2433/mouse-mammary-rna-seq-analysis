@@ -1,0 +1,139 @@
+#Align And Count
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This project involves analyzing RNA-Seq data from mouse mammary tissue samples to identify differentially expressed genes (DEGs) and explore biological pathways associated with breast cancer.
+
+---
+
+## Project Overview
+
+- **Objective:**  
+  Analyze RNA-Seq data from 12 mouse mammary tissue samples to:  
+  - Identify differentially expressed genes (DEGs).  
+  - Investigate pathways relevant to breast cancer.  
+
+- **Dataset:**  
+  RNA-Seq data from 12 samples representing various conditions.
+
+---
+
+## Tools and Software Utilized
+
+- **Rsubread** for alignment and counting.  
+- **Mouse chromosome 1 Rsubread index files (~400MB).**
+- **Targets2.txt.**
+- **Mouse mammary data (fastq files):** [https://figshare.com/s/f5d63d8c265a05618137](https://figshare.com/s/f5d63d8c265a05618137)  
+  Download these files and place them in the `/data` directory.
+- **GEO entry for the dataset:**  [http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE60450](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE60450)
+
+---
+
+## Steps
+
+### 1. Data Files and Preparation
+
+The raw reads were downloaded from SRA from the link given in GEO for the dataset ([ftp://ftp-trace.ncbi.nlm.nih.gov/sra/sra-instant/reads/ByStudy/sra/SRP%2FSRP045%2FSRP045534](ftp://ftp-trace.ncbi.nlm.nih.gov/sra/sra-instant/reads/ByStudy/sra/SRP%2FSRP045%2FSRP045534)). These files are in `.sra` format. The **sra toolkit** from NCBI was used to convert the `.sra` files to `.fastq` files using the `fastq-dump` command.
+
+### 2. Downloading Genome Files
+
+We provided index files for chromosome 1 for the mouse genome build mm10 for this workshop. Full genome fasta files for different genomes are available to download from:
+
+- **UCSC Genome Browser:** [http://hgdownload.soe.ucsc.edu/downloads.html](http://hgdownload.soe.ucsc.edu/downloads.html)
+- **NCBI:** [http://www.ncbi.nlm.nih.gov/genome](http://www.ncbi.nlm.nih.gov/genome)
+- **ENSEMBL:** [http://asia.ensembl.org/info/data/ftp/index.html](http://asia.ensembl.org/info/data/ftp/index.html)
+
+---
+
+## Analysis Workflow
+
+### Step 1: Data Import and Index Preparation
+
+For this workshop, we use a subset of the mouse reference genome (chromosome 1). Mapping reads to the genome is demonstrated with **Rsubread**, an aligner that runs in R.
+
+```{r}
+library(Rsubread)
+```
+
+Locate `.fastq.gz` files:
+
+```{r}
+fastq.files <- list.files(path = "./data", pattern = ".fastq.gz$", full.names = TRUE)
+fastq.files
+```
+
+#### Build Index
+
+If the index isn't pre-built:
+
+```{r eval=FALSE}
+buildindex(basename="chr1_mm10", reference="chr1.fa")
+```
+
+### Step 2: Aligning Reads
+
+Align reads to the reference genome:
+
+```{r}
+align(index="data/chr1_mm10", readfile1=fastq.files)
+```
+
+Obtain alignment summary:
+
+```{r}
+bam.files <- list.files(path = "./data", pattern = ".BAM$", full.names = TRUE)
+bam.files
+props <- propmapped(files = bam.files)
+props
+```
+
+### Step 3: Quality Control
+
+Extract quality scores:
+
+```{r}
+qs <- qualityScores(filename="data/SRR1552450.fastq.gz", nreads=100)
+boxplot(qs)
+```
+
+### Step 4: Counting
+
+Count reads across genes using **featureCounts**:
+
+```{r}
+fc <- featureCounts(bam.files, annot.inbuilt="mm10")
+names(fc)
+fc$stat
+head(fc$counts)
+head(fc$annotation)
+```
+
+---
+
+## Notes
+
+- Sequencing facilities typically provide `.fastq` files.
+- Public data in SRA format must be converted to FASTQ format using the `fastq-dump` utility.
+- Default alignment in `Rsubread` keeps only uniquely mapped reads (`unique=TRUE`).
+- For non-standard annotations, provide a custom annotation file in SAF or GTF format.
+
+---
+
+## Package Versions
+
+```{r}
+sessionInfo()
+```
+
+---
+
+## References
+
+- Langmead, B. (2012). Bowtie.
+- Trapnell, C. (2009). TopHat.
+- Dobin, A. (2013). STAR.
+- Liao, Y. (2013). Rsubread.
+- Fu, N. (2015). Mouse lactation dataset.
+
