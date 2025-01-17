@@ -1,0 +1,63 @@
+# Gene Set Testing
+
+Gene set testing helps interpret long lists of differentially expressed genes by identifying pathways or gene networks they are associated with. Two main types of tests are:
+
+- **Competitive tests:** Determine if DE genes are over-represented in a gene set compared to the rest of the genome (e.g., `GOseq`, `camera`).
+- **Self-contained tests:** Test if a gene set is differentially expressed as a whole (e.g., `ROAST`).
+
+## Competitive Gene Set Testing
+
+### GOseq Analysis
+
+```{r}
+library(goseq)
+getwd()
+setwd("Robjects/")
+load("DE.Rdata")
+results <- as.data.frame(topTags(lrt.BvsL, n = Inf))
+genes <- results$FDR < 0.01
+names(genes) <- rownames(results)
+
+pwf <- nullp(genes, "mm10", "knownGene")
+go.results <- goseq(pwf, "mm10", "knownGene")
+head(go.results)
+```
+
+### fgsea Analysis
+
+```{r}
+library(fgsea)
+
+results.ord <- results[order(-results$logFC), ]
+ranks <- results.ord$logFC
+names(ranks) <- rownames(results.ord)
+
+load("data/mouse_H_v5.rdata")
+pathways <- Mm.H
+
+fgseaRes <- fgsea(pathways, ranks, minSize = 15, maxSize = 500, nperm = 1000)
+head(fgseaRes[order(padj), ])
+
+plotEnrichment(pathways[["HALLMARK_MYOGENESIS"]], ranks)
+```
+
+### CAMERA Gene Set Testing
+
+```{r}
+load("data/mouse_c2_v5.rdata")
+c2.ind <- ids2indices(Mm.c2, rownames(dgeObj$counts))
+
+design <- model.matrix(~ type + status)
+gst.camera <- camera.DGEList(dgeObj, index = c2.ind, design = design, contrast = 2, inter.gene.cor = 0.05)
+head(gst.camera)
+write.csv(gst.camera, file = "gst_LumVsBas.csv")
+```
+
+## Self-contained Gene Set Testing
+
+### ROAST Gene Set Testing
+
+```{r}
+myc <- grep("MYC_", names(c2.ind))
+myc.rst <- roast(dgeObj, index = c2.ind[myc], design = design, contrast = 3, nrot = 999)
+head(myc.rst)
